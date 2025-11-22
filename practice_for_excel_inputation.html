@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>학생 리스트 연습 사이트 (엑셀 자동/다운로드/붙여넣기 완성)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif; }
+    body { margin: 0; background: #f3f5fa; color: #222; }
+    .layout { display: flex; flex-direction: row; padding: 24px; gap: 24px; }
+    .card { background: #fff; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); padding: 20px 24px; }
+    .form-card { flex: 1; max-width: 580px; }
+    h1 { margin: 0 0 8px 0; font-size: 24px; font-weight: 700; }
+    h2 { margin: 8px 0 16px 0; font-size: 18px; }
+    .subtitle { margin-bottom: 20px; color: #666; font-size: 13px; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+    .form-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+    .form-field label { font-weight: 600; }
+    .form-field span.hint { font-size: 11px; color: #888; }
+    input[type="text"], input[type="tel"], input[type="password"], select {
+      border-radius: 8px; border: 1px solid #d4d7e5; padding: 8px 10px; font-size: 13px; outline: none; transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    input:focus, select:focus { border-color: #4460ff; box-shadow: 0 0 0 2px rgba(68,96,255,0.15); }
+    .form-actions { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    button {
+      border: none; border-radius: 999px; padding: 10px 18px; font-size: 13px; cursor: pointer; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 6px; transition: transform 0.05s, box-shadow 0.1s, background 0.15s;
+    }
+    #add-student-button { background: #4460ff; color: #fff; box-shadow: 0 8px 16px rgba(68,96,255,0.35); }
+    #add-student-button:hover { background: #3650e0; }
+    #add-student-button:active { transform: translateY(1px); box-shadow: 0 4px 10px rgba(68,96,255,0.3); }
+    .secondary-btn { background: #eef1ff; color: #3a4ad9; box-shadow: none; }
+    .secondary-btn:hover { background: #e1e6ff; }
+    .status-text { font-size: 12px; color: #666; }
+
+    .student-list-panel {
+      position: fixed; right: 24px; top: 24px; width: 480px; max-height: calc(100vh - 48px);
+      overflow: hidden; display: flex; flex-direction: column; z-index: 999;
+    }
+    .student-list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px; }
+    .student-list-title { font-size: 16px; font-weight: 700; }
+    .student-count-badge { background: #eef1ff; color: #3a4ad9; border-radius: 999px; padding: 3px 10px; font-size: 11px; font-weight: 600; }
+    .student-table-container { flex: 1; overflow: auto; border-radius: 12px; border: 1px solid #e1e3f0; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    thead { position: sticky; top: 0; background: #f4f5fd; z-index: 1; }
+    th, td { padding: 6px 8px; border-bottom: 1px solid #eceef7; text-align: left; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; max-width: 120px; }
+    th { font-weight: 600; font-size: 11px; color: #555; }
+    tbody tr:nth-child(even) { background: #fcfcff; }
+    tbody tr:hover { background: #f1f3ff; }
+    .small-chip { display: inline-flex; padding: 2px 6px; border-radius: 999px; font-size: 10px; background: #eef1ff; color: #3a4ad9; font-weight: 600; }
+    #excel-bulk-input-area { width: 99%; min-height: 74px; box-sizing: border-box; resize: vertical; background: #f1f5fa; margin-top: 0.5em; margin-bottom: 2px; }
+
+    @media (max-width: 1100px) {
+      .student-list-panel { position: static; width: 100%; max-height: none; }
+      .layout { flex-direction: column; }
+      .form-card { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <!-- 왼쪽: 입력/업로드 영역 -->
+    <div class="card form-card">
+      <h1>학생 정보 입력 연습 (엑셀 업로드/붙여넣기)</h1>
+      <p class="subtitle">
+        ✅ <strong>엑셀 파일 업로드</strong> 또는 <strong>엑셀에서 복사→붙여넣기</strong> 후 오른쪽 리스트에 자동 추가됩니다.<br>
+        🔹 엑셀 양식은 <code>학생 이름 (필수)</code>, <code>부모님 전화번호 (필수).</code> … 원본 헤더를 그대로 써도 되고,<br>
+        🔹 간단히 <code>이름 / 부모 / 학생폰 / 학교 / 학년 / 계열 / 성별 / 비번</code> 같은 한국어 헤더를 써도 인식합니다.
+      </p>
+
+      <h2>엑셀 파일 업로드</h2>
+      <div class="form-actions" style="margin-top:4px;">
+        <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" />
+        <span class="status-text">[대치온] 학생 추가용 시트.xlsx 그대로 올려도 인식됩니다.</span>
+      </div>
+
+      <h2>엑셀 일괄 입력 (복사 붙여넣기)</h2>
+      <textarea id="excel-bulk-input-area" placeholder="예시:
+김학생\t010-1111-1111\t010-2222-2222\t서강고\t고1\t이과\t남\tabcd
+이학생\t010-3333-3333\t010-4444-4444\t광성고\t고2\t문과\t여\tqwer
+"></textarea>
+      <div class="form-actions" style="margin-top:8px;">
+        <button id="add-bulk-button" class="secondary-btn">⬇️ 붙여넣은 내용 전체 추가</button>
+      </div>
+
+      <h2>개별 입력</h2>
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="student-name-input">이름 (필수)</label>
+          <input type="text" id="student-name-input" placeholder="예: 김학생" />
+        </div>
+        <div class="form-field">
+          <label for="parent-phone-input">부모님 전화 (필수)</label>
+          <input type="tel" id="parent-phone-input" placeholder="010-0000-0000" />
+        </div>
+        <div class="form-field">
+          <label for="student-phone-input">학생 전화</label>
+          <input type="tel" id="student-phone-input" placeholder="010-0000-0000" />
+        </div>
+        <div class="form-field">
+          <label for="password-input">비밀번호 (필수)</label>
+          <input type="password" id="password-input" placeholder="예: abcd" />
+        </div>
+        <div class="form-field">
+          <label for="highschool-name-input">학교</label>
+          <input type="text" id="highschool-name-input" placeholder="예: 서강고" />
+        </div>
+        <div class="form-field">
+          <label for="grade-select">학년</label>
+          <select id="grade-select">
+            <option value="">선택 안 함</option>
+            <option value="중1">중1</option>
+            <option value="중2">중2</option>
+            <option value="중3">중3</option>
+            <option value="고1">고1</option>
+            <option value="고2">고2</option>
+            <option value="고3">고3</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="track-select">계열</label>
+          <select id="track-select">
+            <option value="">선택 안 함</option>
+            <option value="이과">이과</option>
+            <option value="문과">문과</option>
+            <option value="통합">통합</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="gender-select">성별</label>
+          <select id="gender-select">
+            <option value="">선택 안 함</option>
+            <option value="남">남</option>
+            <option value="여">여</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button id="add-student-button">➕ 리스트에 추가</button>
+        <button type="button" class="secondary-btn" id="clear-fields-button">🧹 입력값 초기화</button>
+        <span class="status-text" id="status-text">아직 추가된 학생이 없습니다.</span>
+      </div>
+    </div>
+
+    <!-- 오른쪽: 학생 리스트 / 다운로드 -->
+    <div class="card student-list-panel">
+      <div class="student-list-header">
+        <span class="student-list-title">학생 리스트</span>
+        <span class="student-count-badge" id="student-count-badge">0명</span>
+        <span style="display:flex;gap:5px;">
+          <button id="download-xlsx-btn" class="secondary-btn" style="padding:5px 10px;">📥 Excel</button>
+          <button id="download-csv-btn"  class="secondary-btn" style="padding:5px 10px;">📥 CSV</button>
+        </span>
+      </div>
+      <div class="student-table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>이름</th>
+              <th>부모</th>
+              <th>학생폰</th>
+              <th>학교/학년</th>
+              <th>계열</th>
+              <th>성별</th>
+              <th>비번</th>
+            </tr>
+          </thead>
+          <tbody id="student-list-body">
+            <!-- JS로 행이 추가됨 -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- SheetJS for xlsx export & import -->
+  <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+  <script>
+    const addButton          = document.getElementById("add-student-button");
+    const addBulkButton      = document.getElementById("add-bulk-button");
+    const clearButton        = document.getElementById("clear-fields-button");
+    const statusText         = document.getElementById("status-text");
+    const studentCountBadge  = document.getElementById("student-count-badge");
+    const studentListBody    = document.getElementById("student-list-body");
+    const excelBulkInputArea = document.getElementById("excel-bulk-input-area");
+    const excelFileInput     = document.getElementById("excel-file-input");
+
+    const downloadXlsxBtn    = document.getElementById("download-xlsx-btn");
+    const downloadCsvBtn     = document.getElementById("download-csv-btn");
+
+    const fields = {
+      name:          document.getElementById("student-name-input"),
+      parentPhone:   document.getElementById("parent-phone-input"),
+      studentPhone:  document.getElementById("student-phone-input"),
+      highschoolName:document.getElementById("highschool-name-input"),
+      grade:         document.getElementById("grade-select"),
+      track:         document.getElementById("track-select"),
+      gender:        document.getElementById("gender-select"),
+      password:      document.getElementById("password-input"),
+    };
+
+    function makeSchoolGrade(highschoolName, grade) {
+      if (highschoolName && grade) return highschoolName + ' ' + grade;
+      if (highschoolName) return highschoolName;
+      return grade || "-";
+    }
+
+    function updateCount() {
+      const count = studentListBody.querySelectorAll("tr").length;
+      studentCountBadge.textContent = count + "명";
+      statusText.textContent = count === 0 ? "아직 추가된 학생이 없습니다." : count + "명의 학생이 리스트에 있습니다.";
+    }
+
+    function clearFields() {
+      Object.values(fields).forEach(el => el.tagName === "SELECT" ? el.value = "" : el.value = "");
+    }
+
+    function addStudentRow({ name, parentPhone, studentPhone, highschoolName, grade, track, gender, password }) {
+      if (!name || !parentPhone || !password) return false;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${name}</td>
+        <td>${parentPhone}</td>
+        <td>${studentPhone || "-"}</td>
+        <td>${makeSchoolGrade(highschoolName, grade)}</td>
+        <td>${track || "-"}</td>
+        <td>${gender || "-"}</td>
+        <td>${password ? "****" : "-"}</td>
+      `;
+      studentListBody.appendChild(tr);
+      return true;
+    }
+
+    // 개별 입력 → 추가
+    addButton.addEventListener("click", function(e) {
+      e.preventDefault();
+      const name          = fields.name.value.trim();
+      const parentPhone   = fields.parentPhone.value.trim();
+      const studentPhone  = fields.studentPhone.value.trim();
+      const highschoolName= fields.highschoolName.value.trim();
+      const grade         = fields.grade.value;
+      const track         = fields.track.value;
+      const gender        = fields.gender.value;
+      const password      = fields.password.value.trim();
+
+      if (!name || !parentPhone || !password) {
+        alert("이름 / 부모님 전화 / 비밀번호는 필수입니다.");
+        return;
+      }
+      const ok = addStudentRow({ name, parentPhone, studentPhone, highschoolName, grade, track, gender, password });
+      if (ok) {
+        updateCount();
+        clearFields();
+      }
+    });
+
+    clearButton.addEventListener("click", clearFields);
+
+    // 붙여넣기 일괄 추가 (탭 또는 콤마 구분)
+    addBulkButton.addEventListener('click', function() {
+      const text = excelBulkInputArea.value.trim();
+      if (!text) return;
+      let cnt = 0, failed = 0;
+      const lines = text.replace(/\r\n/g,"\n").split("\n");
+      for (let row of lines) {
+        if (!row.trim()) continue;
+        let cells = row.split('\t').map(x => x.trim());
+        if (cells.length === 1) cells = row.split(',').map(x => x.trim());
+
+        const [name, parentPhone, studentPhone, highschoolName, grade, track, gender, password] =
+          cells.map(s => (s || "").trim());
+
+        if (!name || !parentPhone || !password) { failed++; continue; }
+
+        addStudentRow({ name, parentPhone, studentPhone, highschoolName, grade, track, gender, password });
+        cnt++;
+      }
+      updateCount();
+      alert(`${cnt}명 추가${failed ? ` / ${failed}명(형식 오류 또는 필수값 없음)` : ""}`);
+      excelBulkInputArea.value = "";
+    });
+
+    // 현재 테이블 데이터를 2차원 배열로 추출
+    function getTableData() {
+      return Array.from(studentListBody.children).map(tr =>
+        Array.from(tr.children).map(td => td.innerText)
+      );
+    }
+
+    // CSV / XLSX 다운로드
+    function downloadCSV(headers, data) {
+      let csv = headers.join(",") + "\r\n" +
+        data.map(row => row.map(cell => `"${(cell || "").replace(/"/g,'""')}"`).join(",")).join("\r\n");
+      const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "학생리스트.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function downloadXLSX(headers, data) {
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "학생리스트");
+      XLSX.writeFile(wb, "학생리스트.xlsx");
+    }
+
+    downloadCsvBtn.addEventListener('click', function(){
+      const headers = ["이름","부모","학생폰","학교/학년","계열","성별","비번"];
+      const data = getTableData();
+      downloadCSV(headers, data);
+    });
+
+    downloadXlsxBtn.addEventListener('click', function(){
+      const headers = ["이름","부모","학생폰","학교/학년","계열","성별","비번"];
+      const data = getTableData();
+      downloadXLSX(headers, data);
+    });
+
+    // ✅ 엑셀 파일 업로드 → 자동 파싱 → 행 추가
+    excelFileInput.addEventListener("change", function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+
+        // JSON(각 행 = 객체)으로 변환
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+        let cnt = 0;
+        rows.forEach(row => {
+          // 원본 대치온 시트 헤더 + 간단 헤더 둘 다 인식
+          const name =
+            row["학생 이름 (필수)"] ||
+            row["이름"] || row["name"] || "";
+          const parentPhone =
+            row["부모님 전화번호 (필수)."] ||
+            row["부모님 전화번호 (필수)"] ||
+            row["부모전화"] || row["부모"] || row["parent"] || "";
+          const studentPhone =
+            row["학생 전화번호 (선택)"] ||
+            row["학생전화"] || row["학생폰"] || row["student"] || "";
+          const highschoolName =
+            row["고등학교 이름 (선택)"] ||
+            row["학교"] || row["학교명"] || row["school"] || "";
+          const grade =
+            row["학년 (선택)"] ||
+            row["학년"] || row["grade"] || "";
+          const track =
+            row["계열 (선택)"] ||
+            row["계열"] || row["track"] || "";
+          const gender =
+            row["성별 (선택)"] ||
+            row["성별"] || row["gender"] || "";
+          const password =
+            row["초기 비밀번호 (필수)\n학생이 로그인 할 비밀번호입니다."] ||
+            row["초기 비밀번호 (필수)"] ||
+            row["비밀번호"] || row["비번"] || row["password"] || "";
+
+          if (!name || !parentPhone || !password) return;
+
+          const ok = addStudentRow({ name, parentPhone, studentPhone, highschoolName, grade, track, gender, password });
+          if (ok) cnt++;
+        });
+
+        updateCount();
+        alert(cnt + "명 엑셀에서 추가 완료");
+        excelFileInput.value = "";
+      };
+
+      reader.readAsArrayBuffer(file);
+    });
+
+    updateCount();
+  </script>
+</body>
+</html>
